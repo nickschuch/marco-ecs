@@ -23,5 +23,5 @@ $ docker run -d \
              --link marco:marco \
              -e "MARCO_ECS_URL=http://marco:81" \
              -e "MARCO_ECS_REGION=us-east-1" \
-             -e "MARCO_ECS_CLUSTER=ci" nickschuch/marco-ecs
+             -e "MARCO_ECS_CLUSTER=default" nickschuch/marco-ecs
 ```
