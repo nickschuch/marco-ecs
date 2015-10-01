@@ -17,13 +17,11 @@ import (
 const name = "ecs"
 
 var (
-	// Marco configuration.
-	cliMarco = kingpin.Flag("marco", "The remote Marco backend.").Default("http://localhost:81").OverrideDefaultFromEnvar("MARCO_URL").String()
-
-	// AWS Specific configuration.
-	cliRegion  = kingpin.Flag("region", "The region to run the build in.").Default("ap-southeast-2").OverrideDefaultFromEnvar("ECS_REGION").String()
-	cliCluster = kingpin.Flag("cluster", "The cluster to run this build against.").Default("default").OverrideDefaultFromEnvar("ECS_CLUSTER").String()
-	cliPorts   = kingpin.Flag("ports", "The ports you wish to proxy.").Default("80,8080,2368,8983").OverrideDefaultFromEnvar("ECS_PORTS").String()
+	cliMarco     = kingpin.Flag("marco", "The remote Marco backend.").Default("http://localhost:81").OverrideDefaultFromEnvar("MARCO_ECS_URL").String()
+	cliFrequency = kingpin.Flag("frequency", "How often to push to Marco").Default("15").OverrideDefaultFromEnvar("MARCO_ECS_FREQUENCY").Uint64()
+	cliRegion    = kingpin.Flag("region", "The region to run the build in.").Default("ap-southeast-2").OverrideDefaultFromEnvar("MARCO_ECS_REGION").String()
+	cliCluster   = kingpin.Flag("cluster", "The cluster to run this build against.").Default("default").OverrideDefaultFromEnvar("MARCO_ECS_CLUSTER").String()
+	cliPorts     = kingpin.Flag("ports", "The ports you wish to proxy.").Default("80,8080,2368,8983").OverrideDefaultFromEnvar("MARCO_ECS_PORTS").String()
 
 	// Global clients.
 	clientECS *ecs.ECS
@@ -42,7 +40,7 @@ func main() {
 	// are not being used by container instances.
 	wg.Add(1)
 	go func() {
-		gocron.Every(15).Seconds().Do(Push, *cliMarco)
+		gocron.Every(*cliFrequency).Seconds().Do(Push, *cliMarco)
 		go gocron.Start()
 	}()
 
