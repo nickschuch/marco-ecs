@@ -3,13 +3,12 @@ package main
 import (
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/jasonlvhit/gocron"
 	"github.com/nickschuch/marco-lib"
 	"gopkg.in/alecthomas/kingpin.v1"
 )
@@ -18,7 +17,7 @@ const name = "ecs"
 
 var (
 	cliMarco     = kingpin.Flag("marco", "The remote Marco backend.").Default("http://localhost:81").OverrideDefaultFromEnvar("MARCO_ECS_URL").String()
-	cliFrequency = kingpin.Flag("frequency", "How often to push to Marco").Default("15").OverrideDefaultFromEnvar("MARCO_ECS_FREQUENCY").Uint64()
+	cliFrequency = kingpin.Flag("frequency", "How often to push to Marco").Default("15").OverrideDefaultFromEnvar("MARCO_ECS_FREQUENCY").Int64()
 	cliRegion    = kingpin.Flag("region", "The region to run the build in.").Default("ap-southeast-2").OverrideDefaultFromEnvar("MARCO_ECS_REGION").String()
 	cliCluster   = kingpin.Flag("cluster", "The cluster to run this build against.").Default("default").OverrideDefaultFromEnvar("MARCO_ECS_CLUSTER").String()
 	cliPorts     = kingpin.Flag("ports", "The ports you wish to proxy.").Default("80,8080,2368,8983").OverrideDefaultFromEnvar("MARCO_ECS_PORTS").String()
@@ -34,27 +33,24 @@ func main() {
 	clientECS = ecs.New(&aws.Config{Region: aws.String(*cliRegion)})
 	clientEC2 = ec2.New(&aws.Config{Region: aws.String(*cliRegion)})
 
-	wg := &sync.WaitGroup{}
-
-	// This is a scheduled set of tasks which will unmount old directories which
-	// are not being used by container instances.
-	wg.Add(1)
-	go func() {
-		gocron.Every(*cliFrequency).Seconds().Do(Push, *cliMarco)
-		go gocron.Start()
-	}()
-
-	wg.Wait()
+	for {
+		Push(*cliMarco)
+		time.Sleep(time.Duration(*cliFrequency) * time.Second)
+	}
 }
 
 func Push(m string) {
 	var b []marco.Backend
 
+	log.WithFields(log.Fields{
+		"type": "started",
+	}).Info("Started pushing data to Marco.")
+
 	// Get a list of backends keyed by the domain.
 	list, err := getList()
 	if err != nil {
 		log.WithFields(log.Fields{
-			"type": "push",
+			"type": "failed",
 		}).Info(err)
 		return
 	}
@@ -73,13 +69,13 @@ func Push(m string) {
 	err = marco.Send(b, *cliMarco)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"type": "push",
+			"type": "failed",
 		}).Info(err)
 		return
 	}
 
 	log.WithFields(log.Fields{
-		"type": "push",
+		"type": "completed",
 	}).Info("Successfully pushed data to Marco.")
 }
 
